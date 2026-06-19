@@ -54,7 +54,7 @@ public class RandomInvoiceFactory {
                 name,
                 generateValidCpf(random),
                 List.of("trial", "batch:%s".formatted(batchId), "source:%s".formatted(source)),
-                List.of(new InvoiceDescriptionRequest("service", "Stark Bank backend trial"))
+                List.of(new InvoiceDescriptionRequest("service", "Trial invoice"))
         );
     }
 
