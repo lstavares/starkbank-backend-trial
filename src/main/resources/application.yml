@@ -1,0 +1,37 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: starkbank-backend-trial
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/starkbank_trial}
+    username: ${DATABASE_USERNAME:starkbank}
+    password: ${DATABASE_PASSWORD:starkbank}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+starkbank:
+  environment: ${STARKBANK_ENVIRONMENT:sandbox}
+  project-id: ${STARKBANK_PROJECT_ID:}
+  private-key-path: ${STARKBANK_PRIVATE_KEY_PATH:}
+  private-key: ${STARKBANK_PRIVATE_KEY:}
+
+invoice:
+  scheduler:
+    enabled: ${INVOICE_SCHEDULER_ENABLED:true}
+    interval-hours: ${INVOICE_INTERVAL_HOURS:3}
+    max-batches: ${INVOICE_MAX_BATCHES:8}
+
+logging:
+  level:
+    br.com.leandrotavares.starkbanktrial: INFO

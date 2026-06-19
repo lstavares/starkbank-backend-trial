@@ -1,0 +1,14 @@
+.DS_Store
+.env
+*.pem
+*.key
+
+target/
+build/
+out/
+
+.idea/
+*.iml
+.vscode/
+
+*.log
