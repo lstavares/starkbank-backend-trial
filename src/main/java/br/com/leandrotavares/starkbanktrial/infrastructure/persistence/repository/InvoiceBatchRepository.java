@@ -10,6 +10,8 @@ import br.com.leandrotavares.starkbanktrial.infrastructure.persistence.entity.en
 
 public interface InvoiceBatchRepository extends JpaRepository<InvoiceBatchEntity, Long> {
 
+    Optional<InvoiceBatchEntity> findByBatchId(String batchId);
+
     long countByTriggerSource(BatchTriggerSource triggerSource);
 
     boolean existsByTriggerSourceAndSequenceNumber(BatchTriggerSource triggerSource, Integer sequenceNumber);
