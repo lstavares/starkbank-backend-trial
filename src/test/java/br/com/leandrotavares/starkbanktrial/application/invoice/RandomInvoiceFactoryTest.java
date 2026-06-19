@@ -25,9 +25,14 @@ class RandomInvoiceFactoryTest {
                 assertThat(isValidCpf(request.taxId())).isTrue();
                 assertThat(request.tags()).contains("trial", "batch:batch-001", "source:manual");
                 assertThat(request.descriptions())
+                        .allSatisfy(description -> {
+                            assertThat(description.key()).isNotBlank();
+                            assertThat(description.value()).isNotBlank();
+                            assertThat(description.value()).hasSizeLessThan(20);
+                        })
                         .anySatisfy(description -> {
                             assertThat(description.key()).isEqualTo("service");
-                            assertThat(description.value()).isEqualTo("Stark Bank backend trial");
+                            assertThat(description.value()).isEqualTo("Trial invoice");
                         });
             });
         }
