@@ -1,6 +1,7 @@
 package br.com.leandrotavares.starkbanktrial.infrastructure.persistence.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,6 +12,10 @@ public interface TransferRecordRepository extends JpaRepository<TransferRecordEn
     boolean existsByExternalId(String externalId);
 
     boolean existsByInvoiceId(String invoiceId);
+
+    Optional<TransferRecordEntity> findByExternalId(String externalId);
+
+    Optional<TransferRecordEntity> findByInvoiceId(String invoiceId);
 
     List<TransferRecordEntity> findTop50ByOrderByCreatedAtDesc();
 }

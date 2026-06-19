@@ -1,5 +1,6 @@
 package br.com.leandrotavares.starkbanktrial.infrastructure.persistence.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,4 +12,6 @@ public interface WebhookEventRecordRepository extends JpaRepository<WebhookEvent
     boolean existsByStarkEventId(String starkEventId);
 
     Optional<WebhookEventRecordEntity> findByStarkEventId(String starkEventId);
+
+    List<WebhookEventRecordEntity> findTop50ByOrderByReceivedAtDesc();
 }
