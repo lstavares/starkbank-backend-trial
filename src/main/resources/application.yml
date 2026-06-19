@@ -25,6 +25,14 @@ starkbank:
   project-id: ${STARKBANK_PROJECT_ID:}
   private-key-path: ${STARKBANK_PRIVATE_KEY_PATH:}
   private-key: ${STARKBANK_PRIVATE_KEY:}
+  transfer:
+    destination:
+      bank-code: ${STARKBANK_TRANSFER_DESTINATION_BANK_CODE:20018183}
+      branch-code: ${STARKBANK_TRANSFER_DESTINATION_BRANCH_CODE:0001}
+      account-number: ${STARKBANK_TRANSFER_DESTINATION_ACCOUNT_NUMBER:6341320293482496}
+      name: ${STARKBANK_TRANSFER_DESTINATION_NAME:Stark Bank S.A.}
+      tax-id: ${STARKBANK_TRANSFER_DESTINATION_TAX_ID:20.018.183/0001-80}
+      account-type: ${STARKBANK_TRANSFER_DESTINATION_ACCOUNT_TYPE:payment}
 
 invoice:
   scheduler:
