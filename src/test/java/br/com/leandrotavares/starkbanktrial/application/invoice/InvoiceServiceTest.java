@@ -157,6 +157,28 @@ class InvoiceServiceTest {
     }
 
     @Test
+    void shouldIssueFirstScheduledBatchWhenNoPreviousSequenceExists() {
+        when(invoiceBatchRepository.findTopByTriggerSourceOrderBySequenceNumberDesc(BatchTriggerSource.SCHEDULED))
+                .thenReturn(Optional.empty());
+        when(invoiceBatchRepository.existsByTriggerSourceAndSequenceNumber(BatchTriggerSource.SCHEDULED, 1))
+                .thenReturn(false);
+
+        List<CreateInvoiceRequest> requests = List.of(request(1_000L, "Ada Lovelace", "11144477735"));
+        when(randomInvoiceFactory.generate(anyString(), eq(BatchTriggerSource.SCHEDULED))).thenReturn(requests);
+        when(invoiceClient.createInvoices(requests)).thenReturn(List.of(
+                new CreatedInvoiceResult("inv_001", 1_000L, null, "created")
+        ));
+
+        var result = service.issueScheduledBatchIfAllowed();
+
+        InvoiceBatchEntity batch = batches.values().iterator().next();
+        assertThat(result.status()).isEqualTo("SUCCEEDED");
+        assertThat(result.sequenceNumber()).isEqualTo(1);
+        assertThat(batch.getTriggerSource()).isEqualTo(BatchTriggerSource.SCHEDULED);
+        assertThat(batch.getSequenceNumber()).isEqualTo(1);
+    }
+
+    @Test
     void shouldSkipScheduledBatchWhenLimitIsReached() {
         InvoiceBatchEntity previousBatch = new InvoiceBatchEntity(
                 "batch-008",

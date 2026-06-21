@@ -312,6 +312,10 @@ O scheduler fica em `InvoiceIssuingScheduler` e usa:
 
 O padrão do projeto é executar a cada 3 horas e parar após 8 batches agendados. Cada batch gera de 8 a 12 Invoices. A geração de Invoice usa `due` aproximadamente 2 horas no futuro e `expiration` de 24 horas; estes valores fazem parte do comportamento atual e não foram alterados nesta etapa de documentação.
 
+Scheduling é habilitado por `@EnableScheduling` em `InvoiceIssuingConfig`. Em validações locais, `INVOICE_SCHEDULER_ENABLED=false` desativa a emissão automática mesmo que a tarefa esteja registrada no contexto Spring. Como o intervalo é medido em horas, a validação automatizada não espera 3 horas: os testes verificam a configuração do scheduler, os defaults e o fluxo de sequência/limite dos batches agendados.
+
+Para uma execução cloud com scheduler habilitado, mantenha apenas uma task/instância ativa. Se a aplicação for escalada horizontalmente no futuro, desabilite o scheduler nas réplicas ou adicione lock distribuído antes de permitir mais de uma instância emitindo batches.
+
 ## Modelo de Persistência
 
 ```mermaid
@@ -434,7 +438,7 @@ Atalhos úteis:
 
 ## Bônus e Melhorias Futuras
 
-- Cloud deployment candidate: empacotar como container, publicar em registry, usar PostgreSQL gerenciado, secrets manager e HTTPS público para webhook.
+- Cloud deployment candidate: empacotar como container, publicar em registry, usar PostgreSQL gerenciado, secrets manager e HTTPS público para webhook. Uma proposta AWS opcional está em [docs/aws-deployment.md](docs/aws-deployment.md).
 - SDK/API findings: documentar pontos que exigem confirmação antes de abrir issue pública.
 - Documentation gaps: registrar dúvidas operacionais sobre `paid`, `due`, `expiration`, fee e payment details.
 - Sandbox behavior observed: manter evidência de Invoices que expiraram sem `paid`.

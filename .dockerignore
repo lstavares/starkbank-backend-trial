@@ -1,0 +1,9 @@
+.git
+target
+.env
+*.pem
+*.key
+*.log
+.idea
+.vscode
+.DS_Store
