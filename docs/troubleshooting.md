@@ -166,3 +166,7 @@ Se batches agendados não aparecem:
 - Consulte `GET /admin/invoice-batches`.
 
 O endpoint manual `POST /admin/invoices/issue-now` não depende do limite de batches agendados.
+
+O scheduler está habilitado no código por `@EnableScheduling` em `InvoiceIssuingConfig`. Se `INVOICE_SCHEDULER_ENABLED=false`, a tarefa continua registrada no Spring, mas retorna sem emitir Invoices. O log desse caminho é discreto e a aplicação usa `INFO` por padrão.
+
+O intervalo padrão é de 3 horas e o limite padrão é de 8 batches, cobrindo a janela de 24 horas pedida pelo desafio. Os testes automatizados não aguardam 3 horas; eles validam a configuração do scheduler e o fluxo de sequência dos batches agendados. Em cloud, use apenas uma task/instância com scheduler habilitado para evitar duplicidade.

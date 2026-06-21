@@ -258,6 +258,8 @@ Proposta mínima:
 - Rodar Flyway no startup controlado ou etapa de deploy.
 - Adicionar healthcheck e logs estruturados.
 
+Para AWS, a opção recomendada para este trial é ECS Fargate com ECR, ALB HTTPS, RDS PostgreSQL, Secrets Manager, CloudWatch Logs e GitHub Actions com OIDC. A proposta detalhada, ainda sem IaC implementado, está em [aws-deployment.md](aws-deployment.md).
+
 ## Observabilidade Futura
 
 Melhorias candidatas:
