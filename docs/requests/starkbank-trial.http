@@ -1,0 +1,44 @@
+@baseUrl = http://localhost:8080
+
+### Healthcheck
+GET {{baseUrl}}/health
+
+### Emitir lote manual de Invoices
+POST {{baseUrl}}/admin/invoices/issue-now
+
+### Listar Invoices locais
+GET {{baseUrl}}/admin/invoices
+
+### Listar batches locais
+GET {{baseUrl}}/admin/invoice-batches
+
+### Listar eventos de webhook locais
+GET {{baseUrl}}/admin/webhook-events
+
+### Listar Transfers locais
+GET {{baseUrl}}/admin/transfers
+
+### Webhook ilustrativo sem assinatura válida
+# Este exemplo não substitui um webhook real da Stark Bank.
+# O endpoint real exige Digital-Signature válido, gerado pela Stark Bank.
+# Com esta assinatura placeholder, a resposta esperada é 400.
+POST {{baseUrl}}/webhooks/starkbank
+Content-Type: application/json
+Digital-Signature: placeholder-invalid-signature
+
+{
+  "event": {
+    "id": "event-placeholder",
+    "subscription": "invoice",
+    "log": {
+      "id": "log-placeholder",
+      "type": "paid",
+      "invoice": {
+        "id": "invoice-placeholder",
+        "status": "paid",
+        "amount": 1000,
+        "fee": 50
+      }
+    }
+  }
+}
