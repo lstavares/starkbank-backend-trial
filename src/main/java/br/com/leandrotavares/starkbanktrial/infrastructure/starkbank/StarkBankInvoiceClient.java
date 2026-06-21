@@ -57,6 +57,8 @@ public class StarkBankInvoiceClient {
         invoice.taxId = request.taxId();
         invoice.tags = toStringArray(request.tags());
         invoice.descriptions = toSdkDescriptions(request.descriptions());
+        invoice.due = request.due();
+        invoice.expiration = request.expiration();
         return invoice;
     }
 

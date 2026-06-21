@@ -38,7 +38,9 @@ class StarkBankInvoiceClientTest {
                 "Ada Lovelace",
                 "01234567890",
                 List.of("batch-001", "scheduled"),
-                List.of(new InvoiceDescriptionRequest("Order", "001"))
+                List.of(new InvoiceDescriptionRequest("Order", "001")),
+                "2026-06-20T17:30:00Z",
+                86_400L
         )));
 
         Invoice sdkInvoice = (Invoice) sdkGateway.createdInvoicesRequest.get(0);
@@ -49,6 +51,8 @@ class StarkBankInvoiceClientTest {
         assertThat(sdkInvoice.name).isEqualTo("Ada Lovelace");
         assertThat(sdkInvoice.taxId).isEqualTo("01234567890");
         assertThat(sdkInvoice.tags).containsExactly("batch-001", "scheduled");
+        assertThat(sdkInvoice.due).isEqualTo("2026-06-20T17:30:00Z");
+        assertThat(sdkInvoice.expiration).isEqualTo(86_400L);
         assertThat(sdkInvoice.descriptions)
                 .singleElement()
                 .satisfies(description -> {

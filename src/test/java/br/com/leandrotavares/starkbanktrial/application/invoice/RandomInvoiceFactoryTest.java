@@ -2,6 +2,8 @@ package br.com.leandrotavares.starkbanktrial.application.invoice;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.OffsetDateTime;
+
 import org.junit.jupiter.api.Test;
 
 import br.com.leandrotavares.starkbanktrial.infrastructure.persistence.entity.enums.BatchTriggerSource;
@@ -24,6 +26,11 @@ class RandomInvoiceFactoryTest {
                 assertThat(request.taxId()).hasSize(11);
                 assertThat(isValidCpf(request.taxId())).isTrue();
                 assertThat(request.tags()).contains("trial", "batch:batch-001", "source:manual");
+                assertThat(request.due()).isNotBlank();
+                OffsetDateTime due = OffsetDateTime.parse(request.due());
+                OffsetDateTime now = OffsetDateTime.now();
+                assertThat(due).isBetween(now.plusMinutes(110), now.plusMinutes(130));
+                assertThat(request.expiration()).isEqualTo(86_400L);
                 assertThat(request.descriptions())
                         .allSatisfy(description -> {
                             assertThat(description.key()).isNotBlank();

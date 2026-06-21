@@ -1,5 +1,9 @@
 package br.com.leandrotavares.starkbanktrial.application.invoice;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
@@ -17,6 +21,10 @@ public class RandomInvoiceFactory {
     static final int MAX_INVOICE_COUNT = 12;
     static final long MIN_AMOUNT = 500L;
     static final long MAX_AMOUNT = 5_000L;
+    static final long IMMEDIATE_INVOICE_DUE_OFFSET_HOURS = 2L;
+    static final long IMMEDIATE_INVOICE_EXPIRATION_SECONDS = 24 * 60 * 60L;
+    private static final DateTimeFormatter STARKBANK_DUE_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSxxx");
 
     private static final List<String> NAMES = List.of(
             "Ada Lovelace",
@@ -54,8 +62,17 @@ public class RandomInvoiceFactory {
                 name,
                 generateValidCpf(random),
                 List.of("trial", "batch:%s".formatted(batchId), "source:%s".formatted(source)),
-                List.of(new InvoiceDescriptionRequest("service", "Trial invoice"))
+                List.of(new InvoiceDescriptionRequest("service", "Trial invoice")),
+                immediateDue(),
+                IMMEDIATE_INVOICE_EXPIRATION_SECONDS
         );
+    }
+
+    private static String immediateDue() {
+        return OffsetDateTime.now(ZoneOffset.UTC)
+                .plusHours(IMMEDIATE_INVOICE_DUE_OFFSET_HOURS)
+                .truncatedTo(ChronoUnit.MICROS)
+                .format(STARKBANK_DUE_FORMATTER);
     }
 
     private static String generateValidCpf(ThreadLocalRandom random) {
