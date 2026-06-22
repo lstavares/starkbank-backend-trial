@@ -407,6 +407,7 @@ Resumo da validação real:
 - Foram persistidos 45 eventos locais: `created=26`, `overdue=18`, `expired=1`, `paid=0`.
 - Todos os eventos consultados na Stark Bank estavam com `isDelivered=true`.
 - Os eventos recebidos foram processados pela aplicação com HTTP 200.
+- Uma validação noturna adicional confirmou o scheduler em execução real, com 52 Invoices scheduled bem-sucedidas distribuídas entre batches de 8 a 12 Invoices.
 - Nenhuma Transfer foi criada porque nenhum evento/log `paid` foi gerado durante a janela observada.
 - O fluxo `paid -> Transfer` está implementado e testado, mas não foi validado end-to-end no Sandbox.
 

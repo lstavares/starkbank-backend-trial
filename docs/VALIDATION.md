@@ -8,6 +8,7 @@ Este documento registra o que foi validado no Sandbox da Stark Bank e o que perm
 - O webhook real foi validado com eventos `created`, `overdue` e `expired`.
 - Todos os eventos recebidos pela aplicação foram processados com HTTP 200.
 - Todos os eventos consultados via SDK na Stark Bank estavam com `isDelivered=true`.
+- O scheduler foi validado em execução real durante uma janela noturna, com batches `SCHEDULED` bem-sucedidos e emissão de 52 Invoices.
 - O fluxo `paid -> Transfer` está implementado e coberto por testes automatizados.
 - O fluxo `paid -> Transfer` não foi validado end-to-end no Sandbox porque nenhum evento/log `paid` foi gerado durante a janela observada.
 - Nenhuma Transfer foi criada porque não houve evento `paid`.
@@ -29,6 +30,89 @@ Transfers:
 | Métrica | Quantidade |
 | --- | ---: |
 | Transfers criadas | 0 |
+
+## Validação Adicional do Scheduler
+
+Uma execução noturna com o scheduler habilitado confirmou que a emissão agendada funciona em ambiente local integrado ao Sandbox da Stark Bank.
+
+Condições observadas:
+
+- Aplicação `UP` em `http://localhost:18080`.
+- Túnel ngrok ativo em `https://juniper-mammary-stalemate.ngrok-free.dev`.
+- `http_count=118` no diagnóstico do túnel.
+
+### Batches Scheduled Observados
+
+| Sequence | Status | Invoices | Horário observado |
+| ---: | --- | ---: | --- |
+| 1 | `FAILED` | 0 | 2026-06-21 18:34:37 BRT |
+| 2 | `FAILED` | 0 | 2026-06-21 18:53:48 BRT |
+| 3 | `SUCCEEDED` | 11 | 2026-06-21 18:55:31 BRT |
+| 4 | `SUCCEEDED` | 8 | 2026-06-21 23:10:20 BRT |
+| 5 | `SUCCEEDED` | 12 | 2026-06-22 02:10:19 BRT |
+| 6 | `SUCCEEDED` | 9 | 2026-06-22 05:10:19 BRT |
+| 7 | `SUCCEEDED` | 12 | 2026-06-22 08:10:18 BRT |
+
+As duas primeiras sequências falharam durante ajustes de configuração. A sequência 3 foi a primeira emissão agendada bem-sucedida.
+
+### Intervalos Observados
+
+| Intervalo | Duração |
+| --- | --- |
+| sequence 1 -> sequence 2 | 19min 11s |
+| sequence 2 -> sequence 3 | 1min 43s |
+| sequence 3 -> sequence 4 | 4h 14min 48s |
+| sequence 4 -> sequence 5 | 2h 59min 59s |
+| sequence 5 -> sequence 6 | 2h 59min 59s |
+| sequence 6 -> sequence 7 | 2h 59min 59s |
+
+O intervalo entre as sequências 3 e 4 foi afetado por pausa/sleep do Mac, com logs indicando `Thread starvation or clock leap detected`. Após estabilização, os intervalos observados ficaram coerentes com a configuração de 3 horas.
+
+### Invoices Scheduled Bem-Sucedidas
+
+Foram emitidas 52 Invoices em batches `SCHEDULED` bem-sucedidos:
+
+| Sequence | Invoices |
+| ---: | ---: |
+| 3 | 11 |
+| 4 | 8 |
+| 5 | 12 |
+| 6 | 9 |
+| 7 | 12 |
+| Total | 52 |
+
+A contagem em `invoice_batches.invoice_count` bateu com os registros correspondentes em `invoice_records`.
+
+Além dos dados reais, uma simulação local de 100 chamadas da factory, sem Stark Bank e sem banco de dados, confirmou distribuição variada dentro do intervalo esperado de 8 a 12 Invoices:
+
+| Quantidade gerada | Frequência |
+| ---: | ---: |
+| 8 | 19 |
+| 9 | 20 |
+| 10 | 22 |
+| 11 | 16 |
+| 12 | 23 |
+
+### Webhooks das Invoices Scheduled
+
+Eventos observados para as 52 Invoices scheduled bem-sucedidas:
+
+| Tipo de evento | Quantidade |
+| --- | ---: |
+| `created` | 52 |
+| `overdue` | 40 |
+| `paid` | 0 |
+| `expired` | 0 |
+| Transfers criadas | 0 |
+
+Conclusão da validação adicional:
+
+- O scheduler foi validado em execução real.
+- As emissões scheduled funcionaram após estabilização da configuração.
+- A quantidade aleatória entre 8 e 12 Invoices foi validada por dados reais e simulação local.
+- Eventos `created` chegaram para todas as Invoices scheduled bem-sucedidas.
+- Nenhum evento/log `paid` foi gerado pelo Sandbox durante a janela observada.
+- Nenhuma Transfer foi criada corretamente, pois não houve evento `paid`.
 
 ## O Que Foi Validado
 
