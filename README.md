@@ -58,6 +58,7 @@ Esta implementação usa o Sandbox da Stark Bank, PostgreSQL local via Docker Co
 ## Arquitetura
 
 A documentação detalhada está em [docs/architecture.md](docs/architecture.md).
+O plano opcional de deploy AWS está em [docs/aws-deployment.md](docs/aws-deployment.md).
 
 ```mermaid
 flowchart LR

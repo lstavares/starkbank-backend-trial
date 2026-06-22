@@ -1,6 +1,8 @@
 # Deploy AWS Opcional
 
-Este documento descreve uma proposta de deploy opcional para demonstrar o Stark Bank Backend Trial na AWS. Ele não implementa IaC, não cria recursos e não contém valores sensíveis.
+Este documento descreve a stack AWS opcional do Stark Bank Backend Trial. Ela existe como preparação revisável de demo/bonus point: adiciona IaC, workflows manuais e documentação, mas não cria recursos automaticamente.
+
+`terraform apply` não deve ser executado sem aprovação explícita.
 
 ## Recomendação
 
@@ -8,78 +10,151 @@ Use ECS Fargate em vez de EKS para este case. A aplicação é um único serviç
 
 EKS faria sentido se o projeto já tivesse plataforma Kubernetes, múltiplos serviços, controllers, GitOps ou necessidade explícita de APIs Kubernetes. Para o bônus do trial, o custo operacional e cognitivo não compensa.
 
-## Arquitetura Proposta
+## Arquitetura
 
-- ECR privado para armazenar a imagem Docker da aplicação.
-- ECS Fargate com um service para o container Spring Boot.
-- ALB público com listener HTTPS e certificado ACM.
-- Target group apontando para a porta `8080` e health check em `/health`.
-- RDS PostgreSQL em subnets privadas.
-- Secrets Manager para credenciais e configurações sensíveis.
+- ECR privado para armazenar a imagem Docker.
+- ECS Fargate com service inicialmente em `desired_count=0`.
+- ALB público com HTTP apenas para smoke test técnico.
+- Listener HTTPS opcional quando `certificate_arn` de ACM estiver disponível.
+- RDS PostgreSQL single-AZ em subnets privadas.
+- Secrets Manager para credenciais sensíveis.
 - CloudWatch Logs para stdout/stderr do container.
 - GitHub Actions com OIDC para autenticar na AWS sem access keys long-lived.
 
-Fluxo esperado:
-
 ```mermaid
 flowchart LR
-    GitHub["GitHub Actions"] --> ECR["Amazon ECR"]
+    GitHub["GitHub Actions OIDC"] --> ECR["Amazon ECR"]
     ECR --> ECS["ECS Fargate"]
-    ALB["ALB HTTPS"] --> ECS
+    ALB["ALB HTTP/HTTPS"] --> ECS
     ECS --> RDS["RDS PostgreSQL"]
     ECS --> Secrets["Secrets Manager"]
     ECS --> Logs["CloudWatch Logs"]
-    Stark["Stark Bank Webhook"] --> ALB
+    Stark["Stark Bank Webhook HTTPS"] --> ALB
 ```
+
+## Preflight
+
+Leia também [aws-preflight.md](aws-preflight.md).
+
+Ferramentas esperadas:
+
+```bash
+terraform -version
+aws --version
+docker --version
+git status
+```
+
+Autenticação AWS local recomendada:
+
+```bash
+aws configure sso --profile starkbank-trial
+aws sso login --profile starkbank-trial
+aws sts get-caller-identity --profile starkbank-trial
+```
+
+Use `AWS_PROFILE=starkbank-trial` e `AWS_REGION=us-east-1` nos comandos Terraform. Não use access key ou secret key hardcoded.
+
+## Terraform
+
+A stack fica em `infra/terraform` e usa defaults seguros:
+
+- `aws_region = "us-east-1"`;
+- `desired_count = 0`;
+- sem NAT Gateway;
+- ALB e ECS em subnets públicas;
+- RDS em subnets privadas;
+- ECS com public IP e inbound restrito ao ALB;
+- HTTPS opcional por `certificate_arn`;
+- sem valores sensíveis reais.
+
+Comandos de revisão:
+
+```bash
+AWS_PROFILE=starkbank-trial AWS_REGION=us-east-1 terraform -chdir=infra/terraform init
+AWS_PROFILE=starkbank-trial AWS_REGION=us-east-1 terraform -chdir=infra/terraform validate
+AWS_PROFILE=starkbank-trial AWS_REGION=us-east-1 terraform -chdir=infra/terraform plan -out=tfplan
+terraform -chdir=infra/terraform show -no-color tfplan > plan.txt
+```
+
+Não versionar `.terraform/`, `terraform.tfstate*`, `*.tfvars` reais, `tfplan` ou `plan.txt`.
 
 ## Secrets
 
-Armazene secrets fora do repositório e injete no container em runtime:
+O Terraform cria a estrutura dos secrets, mas não grava valores reais:
 
-- `STARKBANK_PRIVATE_KEY` como texto no Secrets Manager.
-- `STARKBANK_PROJECT_ID` no Secrets Manager.
-- `DATABASE_PASSWORD` no Secrets Manager.
-- `DATABASE_URL`, `DATABASE_USERNAME`, `STARKBANK_ENVIRONMENT`, `INVOICE_SCHEDULER_ENABLED`, `INVOICE_INTERVAL_HOURS` e `INVOICE_MAX_BATCHES` como env vars não sensíveis ou parâmetros.
+- `STARKBANK_PRIVATE_KEY`;
+- `STARKBANK_PROJECT_ID`;
+- `DATABASE_PASSWORD`, gerenciado pelo RDS.
 
-Não copie `.pem`, `.key` ou `.env` para a imagem. Em cloud, prefira `STARKBANK_PRIVATE_KEY` inline vindo do Secrets Manager e deixe `STARKBANK_PRIVATE_KEY_PATH` vazio.
+Depois de um apply aprovado, preencha os secrets Stark Bank fora do repositório usando AWS Console, AWS CLI ou processo seguro equivalente. Em cloud, prefira `STARKBANK_PRIVATE_KEY` vindo do Secrets Manager e deixe `STARKBANK_PRIVATE_KEY_PATH` vazio.
 
-## Custo e Liga/Desliga
+## GitHub OIDC
 
-- ECS service pode ficar com `desiredCount=0` quando a demo não estiver ativa.
-- Para validar webhook e scheduler, subir temporariamente para `desiredCount=1`.
-- RDS PostgreSQL pode ser parado/iniciado para reduzir custo, respeitando as limitações do RDS e o restart automático após período parado.
-- ALB, storage, snapshots, logs e outros recursos podem continuar gerando custo mesmo com ECS desligado.
-- Evite NAT Gateway na versão econômica. Uma alternativa simples é rodar tasks Fargate em public subnets com public IP, restringindo inbound pelo security group para aceitar tráfego apenas do ALB, e manter o RDS em private subnets.
-- Em desenho mais próximo de produção, use private subnets para ECS com NAT Gateway ou VPC endpoints, aceitando maior custo.
+O Terraform prepara uma role OIDC para GitHub Actions. Depois do apply, configure as variables do repositório:
 
-Quando `desiredCount=0`, o webhook público não recebe eventos e o scheduler não roda.
+- `AWS_REGION`;
+- `AWS_ROLE_TO_ASSUME`;
+- `ECR_REPOSITORY`;
+- `ECS_CLUSTER`;
+- `ECS_SERVICE`;
+- `ECS_TASK_DEFINITION_FAMILY`;
+- `ECS_CONTAINER_NAME`.
+
+Não configure AWS access key ou secret key no GitHub.
+
+## Deploy Manual
+
+O workflow `.github/workflows/deploy-aws.yml` é manual via `workflow_dispatch`. Ele roda testes, builda a imagem Docker, publica no ECR, renderiza uma nova task definition e atualiza o ECS service.
+
+Ele não roda em push e não deve ser usado antes de:
+
+- secrets Stark Bank preenchidos;
+- role OIDC configurada no GitHub;
+- RDS criado e acessível;
+- decisão final de HTTPS/domínio/certificado.
+
+## Scale Manual
+
+O workflow `.github/workflows/scale-aws.yml` também é manual. Use:
+
+- `desired_count=0` para parar tasks ECS e reduzir custo de compute;
+- `desired_count=1` para manter a demo ativa, receber webhooks e rodar o scheduler.
+
+Com `desired_count=0`, o webhook fica indisponível e o scheduler não roda.
+
+## HTTPS e Webhook Stark
+
+HTTP no ALB existe apenas para smoke test técnico. Webhook público real da Stark deve apontar para uma URL HTTPS.
+
+Ainda está pendente definir:
+
+- domínio;
+- DNS editável ou hosted zone Route 53;
+- certificado ACM validado;
+- valor final de `certificate_arn`.
+
+Depois de definir HTTPS, atualize a URL do webhook na Stark para o endpoint final.
 
 ## Scheduler em Cloud
 
-Mantenha apenas uma task com `INVOICE_SCHEDULER_ENABLED=true`. Com mais de uma task ativa e scheduler habilitado, cada instância pode tentar emitir batches.
+Mantenha apenas uma task ativa com `INVOICE_SCHEDULER_ENABLED=true`. Com mais de uma task ativa, cada instância pode tentar emitir batches.
 
 Para escala horizontal futura, escolha uma destas estratégias:
 
-- desabilitar o scheduler nas réplicas com `INVOICE_SCHEDULER_ENABLED=false`;
-- mover a emissão scheduled para um worker separado com `desiredCount=1`;
-- adicionar lock distribuído antes de permitir múltiplas instâncias com scheduler habilitado.
+- desabilitar o scheduler nas réplicas;
+- mover emissão agendada para um worker único;
+- adicionar lock distribuído.
 
-## Plano Futuro de IaC e CI/CD
+## Custos e Teardown
 
-Uma próxima etapa pode adicionar Terraform em `infra/terraform` criando:
+Mesmo com ECS em `desired_count=0`, estes itens podem gerar custo:
 
-- VPC, subnets, route tables e security groups;
-- ECR repository;
-- ECS cluster, task definition e service;
-- ALB, listener HTTPS, target group e health check;
-- RDS PostgreSQL e subnet group;
-- Secrets Manager secrets;
-- IAM roles para task execution, task role e GitHub Actions OIDC;
-- CloudWatch log group.
+- ALB;
+- RDS e storage;
+- backups/snapshots;
+- Secrets Manager;
+- CloudWatch Logs;
+- ECR storage.
 
-Workflows futuros:
-
-- `deploy-aws.yml`: rodar testes, buildar imagem, publicar no ECR, registrar nova task definition e atualizar o ECS service.
-- `scale-aws.yml`: workflow manual para alternar `desiredCount` entre `0` e `1`.
-
-Também será necessário documentar certificado ACM/domínio, cadastro do webhook Stark Bank usando a URL HTTPS final e teardown dos recursos para controlar custo.
+RDS pode ser parado temporariamente pelo Console ou CLI, respeitando as limitações de restart automático da AWS. Para remover tudo, revise o estado Terraform e use `terraform destroy` apenas em uma etapa aprovada e consciente do impacto.
