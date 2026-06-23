@@ -50,10 +50,43 @@ Autenticação AWS local recomendada:
 ```bash
 aws configure sso --profile starkbank-trial
 aws sso login --profile starkbank-trial
-aws sts get-caller-identity --profile starkbank-trial
+
+export AWS_PROFILE=starkbank-trial
+export AWS_REGION=us-east-1
+aws sts get-caller-identity
 ```
 
 Use `AWS_PROFILE=starkbank-trial` e `AWS_REGION=us-east-1` nos comandos Terraform. Não use access key ou secret key hardcoded.
+
+## Profiles
+
+Existem dois conceitos separados:
+
+- `AWS_PROFILE=starkbank-trial`: profile da AWS CLI usado por Terraform e comandos locais de provisionamento.
+- `SPRING_PROFILES_ACTIVE=local` ou `SPRING_PROFILES_ACTIVE=aws`: profile da aplicação Spring Boot.
+
+Para rodar localmente com scheduler desligado:
+
+```bash
+source ~/.starkbank/starkbank-trial.env
+SPRING_PROFILES_ACTIVE=local SERVER_PORT=18080 INVOICE_SCHEDULER_ENABLED=false ./mvnw spring-boot:run
+```
+
+Para rodar localmente com scheduler ligado:
+
+```bash
+source ~/.starkbank/starkbank-trial.env
+SPRING_PROFILES_ACTIVE=local SERVER_PORT=18080 INVOICE_SCHEDULER_ENABLED=true ./mvnw spring-boot:run
+```
+
+No ECS/Fargate, Terraform configura a aplicação com:
+
+```text
+SPRING_PROFILES_ACTIVE=aws
+INVOICE_SCHEDULER_ENABLED=false
+```
+
+O profile `aws` usa variáveis de ambiente e ECS secrets para banco e Stark Bank. Não há secrets reais nos arquivos versionados.
 
 ## Terraform
 
@@ -61,6 +94,8 @@ A stack fica em `infra/terraform` e usa defaults seguros:
 
 - `aws_region = "us-east-1"`;
 - `desired_count = 0`;
+- `spring_profiles_active = "aws"`;
+- `invoice_scheduler_enabled = false`;
 - sem NAT Gateway;
 - ALB e ECS em subnets públicas;
 - RDS em subnets privadas;
@@ -71,13 +106,45 @@ A stack fica em `infra/terraform` e usa defaults seguros:
 Comandos de revisão:
 
 ```bash
-AWS_PROFILE=starkbank-trial AWS_REGION=us-east-1 terraform -chdir=infra/terraform init
+export AWS_PROFILE=starkbank-trial
+export AWS_REGION=us-east-1
+
+aws sts get-caller-identity
 AWS_PROFILE=starkbank-trial AWS_REGION=us-east-1 terraform -chdir=infra/terraform validate
-AWS_PROFILE=starkbank-trial AWS_REGION=us-east-1 terraform -chdir=infra/terraform plan -out=tfplan
-terraform -chdir=infra/terraform show -no-color tfplan > plan.txt
+AWS_PROFILE=starkbank-trial AWS_REGION=us-east-1 terraform -chdir=infra/terraform plan
 ```
 
 Não versionar `.terraform/`, `terraform.tfstate*`, `*.tfvars` reais, `tfplan` ou `plan.txt`.
+
+Exemplo seguro de `terraform.tfvars` local, somente como referência:
+
+```hcl
+aws_region = "us-east-1"
+name_prefix = "starkbank-trial"
+
+desired_count = 0
+
+spring_profiles_active = "aws"
+invoice_scheduler_enabled = false
+invoice_interval_hours = 3
+invoice_max_batches = 8
+
+certificate_arn = ""
+
+# Substitua SEU_IP_PUBLICO/32 antes de executar terraform plan.
+allowed_http_cidr_blocks = ["SEU_IP_PUBLICO/32"]
+allowed_https_cidr_blocks = ["0.0.0.0/0"]
+
+starkbank_environment = "sandbox"
+database_instance_class = "db.t4g.micro"
+
+tags = {
+  Project     = "starkbank-backend-trial"
+  Purpose     = "demo"
+  Environment = "sandbox"
+  Owner       = "leandro"
+}
+```
 
 ## Secrets
 
@@ -119,9 +186,9 @@ Ele não roda em push e não deve ser usado antes de:
 O workflow `.github/workflows/scale-aws.yml` também é manual. Use:
 
 - `desired_count=0` para parar tasks ECS e reduzir custo de compute;
-- `desired_count=1` para manter a demo ativa, receber webhooks e rodar o scheduler.
+- `desired_count=1` para manter a demo ativa e receber webhooks depois que secrets e HTTPS estiverem prontos.
 
-Com `desired_count=0`, o webhook fica indisponível e o scheduler não roda.
+Com `desired_count=0`, o webhook fica indisponível e o scheduler não roda. Com `desired_count=1`, o scheduler continua desligado enquanto `INVOICE_SCHEDULER_ENABLED=false`.
 
 ## HTTPS e Webhook Stark
 
@@ -137,6 +204,8 @@ Ainda está pendente definir:
 Depois de definir HTTPS, atualize a URL do webhook na Stark para o endpoint final.
 
 ## Scheduler em Cloud
+
+O default da stack AWS é `INVOICE_SCHEDULER_ENABLED=false`, mesmo quando `desired_count` for alterado futuramente para `1`.
 
 Mantenha apenas uma task ativa com `INVOICE_SCHEDULER_ENABLED=true`. Com mais de uma task ativa, cada instância pode tentar emitir batches.
 

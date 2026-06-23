@@ -54,6 +54,10 @@ resource "aws_ecs_task_definition" "app" {
           value = tostring(var.container_port)
         },
         {
+          name  = "SPRING_PROFILES_ACTIVE"
+          value = var.spring_profiles_active
+        },
+        {
           name  = "DATABASE_URL"
           value = local.database_url
         },

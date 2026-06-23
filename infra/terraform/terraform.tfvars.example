@@ -3,24 +3,32 @@ name_prefix = "starkbank-trial"
 
 desired_count = 0
 
+spring_profiles_active      = "aws"
+invoice_scheduler_enabled  = false
+invoice_interval_hours     = 3
+invoice_max_batches        = 8
+
 # Leave empty until a public domain and ACM certificate are ready.
 certificate_arn = ""
+
+# Replace SEU_IP_PUBLICO/32 before running terraform plan.
+allowed_http_cidr_blocks  = ["SEU_IP_PUBLICO/32"]
+allowed_https_cidr_blocks = ["0.0.0.0/0"]
 
 github_repository = "lstavares/starkbank-backend-trial"
 github_oidc_subjects = [
   "repo:lstavares/starkbank-backend-trial:*"
 ]
 
-starkbank_environment       = "sandbox"
-invoice_scheduler_enabled  = false
-invoice_interval_hours     = 3
-invoice_max_batches        = 8
+starkbank_environment = "sandbox"
 
 database_name           = "starkbank_trial"
 database_username       = "starkbank"
 database_instance_class = "db.t4g.micro"
 
 tags = {
-  Project = "starkbank-backend-trial"
-  Purpose = "demo"
+  Project     = "starkbank-backend-trial"
+  Purpose     = "demo"
+  Environment = "sandbox"
+  Owner       = "leandro"
 }

@@ -69,6 +69,12 @@ variable "image_tag" {
   default     = "placeholder"
 }
 
+variable "spring_profiles_active" {
+  description = "Spring profile passed to the ECS task runtime."
+  type        = string
+  default     = "aws"
+}
+
 variable "desired_count" {
   description = "Initial ECS desired count. Keep 0 until secrets, domain, and certificate are ready."
   type        = number

@@ -6,6 +6,7 @@ Este preflight prepara a stack AWS opcional do Stark Bank Backend Trial para rev
 
 - Região padrão: `us-east-1`.
 - Autenticação local: AWS IAM Identity Center com profile `starkbank-trial`.
+- `AWS_PROFILE=starkbank-trial` é usado por AWS CLI e Terraform, não pela aplicação Spring.
 - Login recomendado quando a sessão expirar:
 
 ```bash
@@ -15,7 +16,9 @@ aws sso login --profile starkbank-trial
 - Validação de identidade, sem imprimir credenciais:
 
 ```bash
-aws sts get-caller-identity --profile starkbank-trial
+export AWS_PROFILE=starkbank-trial
+export AWS_REGION=us-east-1
+aws sts get-caller-identity
 ```
 
 Não use access key ou secret key hardcoded. Não coloque credenciais em arquivos versionados, variáveis de workflow visíveis ou mensagens.
@@ -27,6 +30,8 @@ Não use access key ou secret key hardcoded. Não coloque credenciais em arquivo
 - Subnets privadas para RDS PostgreSQL.
 - ECR privado.
 - ECS Fargate service com `desired_count=0` inicialmente.
+- ECS task com `SPRING_PROFILES_ACTIVE=aws`.
+- Scheduler da aplicação desligado inicialmente com `INVOICE_SCHEDULER_ENABLED=false`.
 - ALB público com HTTP para smoke test técnico.
 - HTTPS apenas se `certificate_arn` for informado.
 - RDS PostgreSQL single-AZ para demo.
@@ -48,7 +53,39 @@ O webhook público real da Stark deve usar uma URL HTTPS final. Antes de ativar 
 
 O default `desired_count=0` evita task rodando automaticamente antes de secrets e HTTPS estarem prontos. Com `desired_count=0`, a aplicação fica indisponível, o webhook não recebe eventos e o scheduler não roda.
 
-Para uma demo ativa, use `desired_count=1`. Não use mais de uma task com `INVOICE_SCHEDULER_ENABLED=true`, porque o scheduler é in-process e pode emitir batches duplicados.
+Para uma demo ativa, use `desired_count=1` depois das decisões de secrets, domínio e HTTPS. O default da stack AWS mantém `invoice_scheduler_enabled=false`, então o scheduler continua desligado até ser ativado de forma explícita. Não use mais de uma task com `INVOICE_SCHEDULER_ENABLED=true`, porque o scheduler é in-process e pode emitir batches duplicados.
+
+## Execução Local da Aplicação
+
+`SPRING_PROFILES_ACTIVE` escolhe a configuração da aplicação Spring Boot.
+
+Scheduler desligado:
+
+```bash
+source ~/.starkbank/starkbank-trial.env
+SPRING_PROFILES_ACTIVE=local SERVER_PORT=18080 INVOICE_SCHEDULER_ENABLED=false ./mvnw spring-boot:run
+```
+
+Scheduler ligado:
+
+```bash
+source ~/.starkbank/starkbank-trial.env
+SPRING_PROFILES_ACTIVE=local SERVER_PORT=18080 INVOICE_SCHEDULER_ENABLED=true ./mvnw spring-boot:run
+```
+
+No ECS/Fargate, use `SPRING_PROFILES_ACTIVE=aws`; Terraform já injeta esse valor via task definition.
+
+## Terraform Local
+
+```bash
+export AWS_PROFILE=starkbank-trial
+export AWS_REGION=us-east-1
+
+aws sts get-caller-identity
+terraform -chdir=infra/terraform plan
+```
+
+Não execute `terraform apply` nesta etapa.
 
 ## Custos e Riscos
 

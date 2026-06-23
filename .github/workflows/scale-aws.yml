@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       desired_count:
-        description: "ECS desired count. Use 0 to stop tasks; use 1 to receive webhooks and run the scheduler."
+        description: "ECS desired count. Use 0 to stop tasks; use 1 to receive webhooks when the task runtime is ready."
         required: true
         type: choice
         options:
