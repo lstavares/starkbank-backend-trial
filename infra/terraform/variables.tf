@@ -160,7 +160,7 @@ variable "starkbank_environment" {
 variable "invoice_scheduler_enabled" {
   description = "Whether the invoice scheduler starts inside the ECS task."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "invoice_interval_hours" {
