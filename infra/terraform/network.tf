@@ -97,7 +97,7 @@ resource "aws_security_group" "alb" {
   }
 
   dynamic "ingress" {
-    for_each = var.certificate_arn == "" ? [] : [1]
+    for_each = local.https_requested ? [1] : []
 
     content {
       description = "HTTPS public access"

@@ -37,20 +37,38 @@ resource "aws_lb_listener" "http" {
   port              = 80
   protocol          = "HTTP"
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+  dynamic "default_action" {
+    for_each = var.redirect_http_to_https && local.https_requested ? [1] : []
+
+    content {
+      type = "redirect"
+
+      redirect {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = var.redirect_http_to_https && local.https_requested ? [] : [1]
+
+    content {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.app.arn
+    }
   }
 }
 
 resource "aws_lb_listener" "https" {
-  count = var.certificate_arn == "" ? 0 : 1
+  count = local.https_requested ? 1 : 0
 
   load_balancer_arn = aws_lb.app.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = var.certificate_arn
+  certificate_arn   = local.https_certificate_arn
 
   default_action {
     type             = "forward"

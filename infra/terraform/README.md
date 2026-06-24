@@ -118,6 +118,37 @@ dig +short NS tavares-dev.com.br
 
 Only start Phase 2 after those nameservers are visible publicly.
 
+## HTTPS Phase 2
+
+Set these variables after Route 53 nameservers have propagated:
+
+```hcl
+route53_zone_enabled  = true
+managed_https_enabled = true
+app_domain_name       = "starkbank-trial.tavares-dev.com.br"
+redirect_http_to_https = true
+```
+
+Phase 2 creates:
+
+- ACM certificate for `starkbank-trial.tavares-dev.com.br`;
+- Route 53 ACM validation records;
+- ACM certificate validation;
+- ALB HTTPS listener on 443;
+- ALB security group ingress for 443;
+- Route 53 alias `A` record from the app domain to the ALB;
+- HTTP 80 to HTTPS 443 redirect when `redirect_http_to_https=true`.
+
+It does not change the Stark webhook, scheduler settings, ECS desired count, Java code, or secrets.
+
+Validate after apply:
+
+```bash
+dig +short starkbank-trial.tavares-dev.com.br
+curl -i https://starkbank-trial.tavares-dev.com.br/health
+curl -I http://starkbank-trial.tavares-dev.com.br/health
+```
+
 ## Variables
 
 Copy `terraform.tfvars.example` to a local ignored `terraform.tfvars` only if you need local overrides. Keep real secrets out of tfvars. Fill Secrets Manager values after apply through AWS tooling.
@@ -141,9 +172,11 @@ invoice_max_batches = 8
 certificate_arn = ""
 
 root_domain_name = "tavares-dev.com.br"
+app_domain_name = "starkbank-trial.tavares-dev.com.br"
 route53_zone_enabled = false
 preserve_root_email_block_records = true
 managed_https_enabled = false
+redirect_http_to_https = true
 
 # Replace SEU_IP_PUBLICO/32 before running terraform plan.
 allowed_http_cidr_blocks = ["SEU_IP_PUBLICO/32"]

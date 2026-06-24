@@ -100,7 +100,7 @@ A stack fica em `infra/terraform` e usa defaults seguros:
 - ALB e ECS em subnets públicas;
 - RDS em subnets privadas;
 - ECS com public IP e inbound restrito ao ALB;
-- HTTPS opcional por `certificate_arn`;
+- HTTPS opcional por `certificate_arn` externo ou `managed_https_enabled`;
 - Route 53 opcional por `route53_zone_enabled`;
 - sem valores sensíveis reais.
 
@@ -134,9 +134,11 @@ invoice_max_batches = 8
 certificate_arn = ""
 
 root_domain_name = "tavares-dev.com.br"
+app_domain_name = "starkbank-trial.tavares-dev.com.br"
 route53_zone_enabled = false
 preserve_root_email_block_records = true
 managed_https_enabled = false
+redirect_http_to_https = true
 
 # Substitua SEU_IP_PUBLICO/32 antes de executar terraform plan.
 allowed_http_cidr_blocks = ["SEU_IP_PUBLICO/32"]
@@ -224,7 +226,15 @@ Depois do apply da Fase 1, copie os 4 nameservers do output `route53_name_server
 dig +short NS tavares-dev.com.br
 ```
 
-ACM, validação DNS, listener HTTPS e alias do subdomínio ficam para a Fase 2.
+Na Fase 2, depois da propagação dos nameservers, `managed_https_enabled=true` cria:
+
+- certificado ACM em `us-east-1` para `starkbank-trial.tavares-dev.com.br`;
+- registros DNS de validação ACM no Route 53;
+- validação ACM;
+- listener HTTPS 443 no ALB;
+- liberação de entrada 443 no security group do ALB;
+- alias `A` do subdomínio para o ALB;
+- redirect HTTP 80 para HTTPS 443 quando `redirect_http_to_https=true`.
 
 HTTP no ALB existe apenas para smoke test técnico. Webhook público real da Stark deve apontar para uma URL HTTPS final:
 
@@ -234,14 +244,18 @@ https://starkbank-trial.tavares-dev.com.br/webhooks/starkbank
 
 Ngrok continua sendo uma ferramenta local/fallback para expor a aplicação em desenvolvimento. Ele não deve ficar na frente da AWS no teste end-to-end, porque adiciona uma dependência temporária e não valida o caminho final ALB HTTPS -> ECS.
 
-Ainda está pendente definir:
+Comandos de revisão da Fase 2:
 
-- domínio;
-- DNS editável ou hosted zone Route 53;
-- certificado ACM validado;
-- valor final de `certificate_arn`.
+```bash
+AWS_PROFILE=starkbank-trial AWS_REGION=us-east-1 terraform -chdir=infra/terraform plan \
+  -var='route53_zone_enabled=true' \
+  -var='managed_https_enabled=true' \
+  -var='root_domain_name=tavares-dev.com.br' \
+  -var='app_domain_name=starkbank-trial.tavares-dev.com.br' \
+  -var='redirect_http_to_https=true'
+```
 
-Depois de definir HTTPS, atualize a URL do webhook na Stark para o endpoint final. Não mantenha a aplicação local/ngrok e a aplicação AWS processando webhooks ao mesmo tempo durante a bateria, e não deixe duas subscriptions `invoice` ativas apontando para ambientes diferentes.
+Depois de validar HTTPS, atualize a URL do webhook na Stark em uma etapa separada e aprovada. Não mantenha a aplicação local/ngrok e a aplicação AWS processando webhooks ao mesmo tempo durante a bateria, e não deixe duas subscriptions `invoice` ativas apontando para ambientes diferentes.
 
 ## Scheduler em Cloud
 
@@ -252,10 +266,10 @@ Mantenha apenas uma task ativa com `INVOICE_SCHEDULER_ENABLED=true`. Com mais de
 Antes de habilitar o scheduler AWS, confirme:
 
 - aplicação AWS saudável;
-- `/health` respondendo por HTTPS;
+- `/health` respondendo em `https://starkbank-trial.tavares-dev.com.br/health`;
 - RDS acessível e Flyway aplicado;
 - secrets Stark Bank preenchidos no Secrets Manager;
-- webhook da Stark apontando para `https://<dominio-final>/webhooks/starkbank`;
+- webhook da Stark apontando para `https://starkbank-trial.tavares-dev.com.br/webhooks/starkbank`;
 - app local parado ou isolado para não processar os mesmos webhooks;
 - ECS com `desired_count=1`;
 - `INVOICE_MAX_BATCHES=8`.

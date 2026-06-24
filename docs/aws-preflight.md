@@ -52,7 +52,7 @@ https://starkbank-trial.tavares-dev.com.br/webhooks/starkbank
 O DNS deve ser preparado em duas fases:
 
 - Fase 1: criar somente a hosted zone pública Route 53 para `tavares-dev.com.br`, preservar MX nulo e TXT SPF `v=spf1 -all`, e copiar o output `route53_name_servers` para o painel do registrador.
-- Fase 2: após propagação dos nameservers, criar ACM, validação DNS, listener HTTPS e alias do subdomínio.
+- Fase 2: após propagação dos nameservers, criar ACM, validação DNS, listener HTTPS, liberação 443 no security group, alias do subdomínio e redirect HTTP para HTTPS quando `redirect_http_to_https=true`.
 
 Após o apply da Fase 1, valide a propagação com:
 
@@ -60,11 +60,13 @@ Após o apply da Fase 1, valide a propagação com:
 dig +short NS tavares-dev.com.br
 ```
 
-Antes de ativar a demo, será necessário concluir uma destas alternativas:
+Com `managed_https_enabled=true`, a stack usa o Route 53 criado na Fase 1 para validar ACM e servir:
 
-- informar um `certificate_arn` de ACM já validado;
-- criar/validar certificado ACM com DNS editável;
-- usar Route 53 futuramente para automatizar validação DNS.
+```text
+https://starkbank-trial.tavares-dev.com.br
+```
+
+O webhook da Stark continua pendente até uma etapa separada de cutover. Não altere o webhook na Stark apenas porque HTTPS já está pronto.
 
 Ngrok é apenas fallback/local para desenvolvimento. Não use ngrok como camada temporária na frente da AWS para a bateria end-to-end, porque o teste precisa validar o domínio final, ACM, ALB HTTPS e ECS.
 
@@ -76,10 +78,10 @@ Para uma demo ativa, use `desired_count=1` depois das decisões de secrets, dom�
 
 Antes de habilitar o scheduler AWS:
 
-- confirme app AWS saudável e `/health` via HTTPS;
+- confirme app AWS saudável e `/health` em `https://starkbank-trial.tavares-dev.com.br/health`;
 - confirme RDS acessível e Flyway aplicado;
 - confirme secrets Stark Bank preenchidos no Secrets Manager;
-- aponte o webhook da Stark para `https://<dominio-final>/webhooks/starkbank`;
+- aponte o webhook da Stark para `https://starkbank-trial.tavares-dev.com.br/webhooks/starkbank`;
 - pare ou isole o app local/ngrok para evitar processamento duplo;
 - mantenha apenas uma task ECS ativa;
 - use `INVOICE_SCHEDULER_ENABLED=true` somente no momento aprovado da bateria;

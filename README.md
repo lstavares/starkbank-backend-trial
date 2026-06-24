@@ -292,10 +292,10 @@ Sempre que a URL pública mudar, atualize o webhook no Sandbox. Webhooks reais p
 Para AWS, ngrok é apenas fallback/local. O endpoint final da Stark deve usar HTTPS no domínio da AWS:
 
 ```text
-https://<dominio-final>/webhooks/starkbank
+https://starkbank-trial.tavares-dev.com.br/webhooks/starkbank
 ```
 
-O HTTP do ALB serve apenas para smoke test técnico, por exemplo `/health`. Antes de habilitar o scheduler AWS, confirme app saudável, `/health` via HTTPS, RDS/Flyway, secrets, webhook apontando para AWS, app local parado ou isolado, apenas uma task ECS ativa e `INVOICE_MAX_BATCHES=8`.
+O HTTP do ALB serve apenas para smoke test técnico ou redirect para HTTPS. Antes de habilitar o scheduler AWS, confirme app saudável, `/health` via HTTPS, RDS/Flyway, secrets, webhook apontando para AWS, app local parado ou isolado, apenas uma task ECS ativa e `INVOICE_MAX_BATCHES=8`.
 
 Não mantenha local/ngrok e AWS processando webhooks ao mesmo tempo, nem duas subscriptions `invoice` ativas na Stark apontando para ambientes diferentes durante a bateria. Para rollback, desligue primeiro o scheduler via nova task definition/workflow, mantenha a task viva para eventos pendentes, escale ECS para `0` só depois que os eventos cessarem e restaure o webhook para local/ngrok apenas se necessário.
 

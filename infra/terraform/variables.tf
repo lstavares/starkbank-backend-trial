@@ -57,6 +57,12 @@ variable "root_domain_name" {
   default     = "tavares-dev.com.br"
 }
 
+variable "app_domain_name" {
+  description = "Application subdomain served by the ALB when managed HTTPS is enabled."
+  type        = string
+  default     = "starkbank-trial.tavares-dev.com.br"
+}
+
 variable "route53_zone_enabled" {
   description = "Whether Terraform should create the public Route 53 hosted zone for the root domain."
   type        = bool
@@ -70,9 +76,15 @@ variable "preserve_root_email_block_records" {
 }
 
 variable "managed_https_enabled" {
-  description = "Reserved for the future ACM/HTTPS phase. Keep false during Route 53 phase 1."
+  description = "Whether Terraform should manage ACM validation, ALB HTTPS listener, and application DNS alias."
   type        = bool
   default     = false
+}
+
+variable "redirect_http_to_https" {
+  description = "Whether the ALB HTTP listener should redirect to HTTPS when an HTTPS listener is enabled."
+  type        = bool
+  default     = true
 }
 
 variable "container_name" {

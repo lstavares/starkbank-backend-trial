@@ -40,12 +40,12 @@ output "http_url" {
 
 output "https_enabled" {
   description = "Whether Terraform created an HTTPS listener."
-  value       = var.certificate_arn != ""
+  value       = local.https_requested
 }
 
 output "root_domain_name" {
   description = "Root domain name used by the optional Route 53 hosted zone."
-  value       = var.root_domain_name
+  value       = local.root_domain_name
 }
 
 output "route53_zone_id" {
@@ -56,6 +56,26 @@ output "route53_zone_id" {
 output "route53_name_servers" {
   description = "Nameservers to configure at the domain registrar after Route 53 phase 1 apply."
   value       = var.route53_zone_enabled ? aws_route53_zone.root[0].name_servers : []
+}
+
+output "app_domain_name" {
+  description = "Application domain name served through the ALB when HTTPS is enabled."
+  value       = local.app_domain_name
+}
+
+output "https_url" {
+  description = "Final HTTPS URL for the application domain."
+  value       = local.https_url
+}
+
+output "webhook_url" {
+  description = "Final Stark Bank webhook URL for the application domain."
+  value       = local.webhook_url
+}
+
+output "acm_certificate_arn" {
+  description = "ACM certificate ARN used by the HTTPS listener, when enabled."
+  value       = local.https_certificate_arn == "" ? null : local.https_certificate_arn
 }
 
 output "github_deploy_role_arn" {
