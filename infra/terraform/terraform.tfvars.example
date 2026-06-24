@@ -2,6 +2,7 @@ aws_region  = "us-east-1"
 name_prefix = "starkbank-trial"
 
 desired_count = 0
+image_tag     = "latest"
 
 spring_profiles_active      = "aws"
 invoice_scheduler_enabled  = false

@@ -123,6 +123,7 @@ aws_region = "us-east-1"
 name_prefix = "starkbank-trial"
 
 desired_count = 0
+image_tag = "latest"
 
 spring_profiles_active = "aws"
 invoice_scheduler_enabled = false
@@ -174,6 +175,18 @@ Não configure AWS access key ou secret key no GitHub.
 
 O workflow `.github/workflows/deploy-aws.yml` é manual via `workflow_dispatch`. Ele roda testes, builda a imagem Docker, publica no ECR, renderiza uma nova task definition e atualiza o ECS service.
 
+O build publica duas tags no ECR:
+
+- `${{ github.sha }}`: tag imutável usada no deploy ECS.
+- `latest`: tag explícita para bootstrap da task definition inicial do Terraform.
+
+O workflow também expõe inputs manuais para scheduler. Os defaults seguros são:
+
+- `invoice_scheduler_enabled=false`;
+- `invoice_max_batches=8`.
+
+Alterar `invoice_scheduler_enabled` para `true` emite Invoices no Sandbox da Stark Bank. Use esse input apenas depois do cutover HTTPS do webhook e com uma única task ECS ativa.
+
 Ele não roda em push e não deve ser usado antes de:
 
 - secrets Stark Bank preenchidos;
@@ -192,7 +205,13 @@ Com `desired_count=0`, o webhook fica indisponível e o scheduler não roda. Com
 
 ## HTTPS e Webhook Stark
 
-HTTP no ALB existe apenas para smoke test técnico. Webhook público real da Stark deve apontar para uma URL HTTPS.
+HTTP no ALB existe apenas para smoke test técnico. Webhook público real da Stark deve apontar para uma URL HTTPS final:
+
+```text
+https://<dominio-final>/webhooks/starkbank
+```
+
+Ngrok continua sendo uma ferramenta local/fallback para expor a aplicação em desenvolvimento. Ele não deve ficar na frente da AWS no teste end-to-end, porque adiciona uma dependência temporária e não valida o caminho final ALB HTTPS -> ECS.
 
 Ainda está pendente definir:
 
@@ -201,13 +220,31 @@ Ainda está pendente definir:
 - certificado ACM validado;
 - valor final de `certificate_arn`.
 
-Depois de definir HTTPS, atualize a URL do webhook na Stark para o endpoint final.
+Depois de definir HTTPS, atualize a URL do webhook na Stark para o endpoint final. Não mantenha a aplicação local/ngrok e a aplicação AWS processando webhooks ao mesmo tempo durante a bateria, e não deixe duas subscriptions `invoice` ativas apontando para ambientes diferentes.
 
 ## Scheduler em Cloud
 
 O default da stack AWS é `INVOICE_SCHEDULER_ENABLED=false`, mesmo quando `desired_count` for alterado futuramente para `1`.
 
 Mantenha apenas uma task ativa com `INVOICE_SCHEDULER_ENABLED=true`. Com mais de uma task ativa, cada instância pode tentar emitir batches.
+
+Antes de habilitar o scheduler AWS, confirme:
+
+- aplicação AWS saudável;
+- `/health` respondendo por HTTPS;
+- RDS acessível e Flyway aplicado;
+- secrets Stark Bank preenchidos no Secrets Manager;
+- webhook da Stark apontando para `https://<dominio-final>/webhooks/starkbank`;
+- app local parado ou isolado para não processar os mesmos webhooks;
+- ECS com `desired_count=1`;
+- `INVOICE_MAX_BATCHES=8`.
+
+Rollback operacional:
+
+- primeiro publique nova task definition com `INVOICE_SCHEDULER_ENABLED=false`;
+- mantenha a task viva para receber eventos pendentes;
+- escale ECS para `desired_count=0` somente depois que os eventos cessarem;
+- restaure o webhook da Stark para local/ngrok apenas se for necessário voltar ao fluxo local.
 
 Para escala horizontal futura, escolha uma destas estratégias:
 

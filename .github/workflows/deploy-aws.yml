@@ -2,6 +2,20 @@ name: Deploy AWS
 
 on:
   workflow_dispatch:
+    inputs:
+      invoice_scheduler_enabled:
+        description: "DANGER: true emits invoices in the Stark Bank Sandbox. Keep false until HTTPS webhook cutover is complete."
+        required: true
+        type: choice
+        options:
+          - "false"
+          - "true"
+        default: "false"
+      invoice_max_batches:
+        description: "Maximum scheduled invoice batches. Keep 8 for the standard trial battery."
+        required: true
+        type: string
+        default: "8"
 
 permissions:
   contents: read
@@ -15,6 +29,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Validate scheduler inputs
+        run: |
+          case "${{ inputs.invoice_max_batches }}" in
+            ''|*[!0-9]*) echo "invoice_max_batches must be a positive integer" >&2; exit 1 ;;
+          esac
+          if [ "${{ inputs.invoice_max_batches }}" -lt 1 ]; then
+            echo "invoice_max_batches must be greater than zero" >&2
+            exit 1
+          fi
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -43,8 +67,12 @@ jobs:
           ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
+          docker build \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
+            -t "$ECR_REGISTRY/$ECR_REPOSITORY:latest" \
+            .
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Download current task definition
@@ -61,6 +89,9 @@ jobs:
           task-definition: task-definition.json
           container-name: ${{ vars.ECS_CONTAINER_NAME }}
           image: ${{ steps.build-image.outputs.image }}
+          environment-variables: |
+            INVOICE_SCHEDULER_ENABLED=${{ inputs.invoice_scheduler_enabled }}
+            INVOICE_MAX_BATCHES=${{ inputs.invoice_max_batches }}
 
       - name: Deploy task definition
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2

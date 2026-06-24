@@ -17,6 +17,7 @@ This Terraform stack prepares an optional AWS demo deployment for the Stark Bank
 ## Safety Defaults
 
 - `desired_count = 0`, so no ECS task starts immediately.
+- `image_tag = "latest"`, so the initial ECS task definition points to an explicit bootstrap image tag instead of a placeholder.
 - `spring_profiles_active = "aws"`, so the ECS task loads `application-aws.yml`.
 - `invoice_scheduler_enabled = false`, so the AWS task starts with the in-process scheduler disabled.
 - No NAT Gateway, to reduce demo cost.
@@ -71,6 +72,31 @@ INVOICE_SCHEDULER_ENABLED=false
 
 The `aws` Spring profile expects database and Stark Bank sensitive values from environment variables or ECS secrets. It does not contain real secrets.
 
+## Image Tags and Deploy Workflow
+
+Terraform uses `image_tag` only for the initial ECS task definition. The default is `latest`, and validation rejects empty values or `placeholder`.
+
+The manual GitHub Actions deploy workflow pushes two ECR tags:
+
+- `${{ github.sha }}` for the immutable image deployed to ECS.
+- `latest` for the explicit Terraform bootstrap image tag.
+
+The deploy workflow keeps `INVOICE_SCHEDULER_ENABLED=false` by default. Setting it to `true` emits invoices in the Stark Bank Sandbox and must only happen after HTTPS webhook cutover is complete.
+
+## Webhook Cutover
+
+The final Stark Bank webhook endpoint for AWS must use HTTPS:
+
+```text
+https://<dominio-final>/webhooks/starkbank
+```
+
+The ALB HTTP listener is only for smoke tests such as `/health`. Ngrok remains a local/fallback tool and should not sit in front of AWS for the end-to-end scheduler battery.
+
+Before enabling the AWS scheduler, confirm HTTPS, Secrets Manager values, RDS/Flyway, one active ECS task, and the Stark webhook pointing to the AWS endpoint. Do not keep local/ngrok and AWS processing the same `invoice` webhooks at the same time.
+
+Rollback starts by deploying a new task definition with `INVOICE_SCHEDULER_ENABLED=false`. Keep the task running for pending webhook events, scale to `desired_count=0` only after events stop, and restore the Stark webhook to local/ngrok only if the local fallback is needed.
+
 ## Variables
 
 Copy `terraform.tfvars.example` to a local ignored `terraform.tfvars` only if you need local overrides. Keep real secrets out of tfvars. Fill Secrets Manager values after apply through AWS tooling.
@@ -84,6 +110,7 @@ aws_region = "us-east-1"
 name_prefix = "starkbank-trial"
 
 desired_count = 0
+image_tag = "latest"
 
 spring_profiles_active = "aws"
 invoice_scheduler_enabled = false

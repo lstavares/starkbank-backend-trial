@@ -66,7 +66,12 @@ variable "container_port" {
 variable "image_tag" {
   description = "Initial image tag used by Terraform for the ECS task definition. GitHub Actions updates this later."
   type        = string
-  default     = "placeholder"
+  default     = "latest"
+
+  validation {
+    condition     = trimspace(var.image_tag) != "" && lower(trimspace(var.image_tag)) != "placeholder"
+    error_message = "image_tag must not be empty or placeholder."
+  }
 }
 
 variable "spring_profiles_active" {

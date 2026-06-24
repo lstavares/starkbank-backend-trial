@@ -43,17 +43,40 @@ Não use access key ou secret key hardcoded. Não coloque credenciais em arquivo
 
 Domínio, hosted zone e certificado ACM ainda estão pendentes. O listener HTTP existe apenas para smoke test técnico do ALB.
 
-O webhook público real da Stark deve usar uma URL HTTPS final. Antes de ativar a demo, será necessário definir uma destas alternativas:
+O webhook público real da Stark deve usar uma URL HTTPS final:
+
+```text
+https://<dominio-final>/webhooks/starkbank
+```
+
+Antes de ativar a demo, será necessário definir uma destas alternativas:
 
 - informar um `certificate_arn` de ACM já validado;
 - criar/validar certificado ACM com DNS editável;
 - usar Route 53 futuramente para automatizar validação DNS.
+
+Ngrok é apenas fallback/local para desenvolvimento. Não use ngrok como camada temporária na frente da AWS para a bateria end-to-end, porque o teste precisa validar o domínio final, ACM, ALB HTTPS e ECS.
 
 ## Liga/Desliga e Limitações
 
 O default `desired_count=0` evita task rodando automaticamente antes de secrets e HTTPS estarem prontos. Com `desired_count=0`, a aplicação fica indisponível, o webhook não recebe eventos e o scheduler não roda.
 
 Para uma demo ativa, use `desired_count=1` depois das decisões de secrets, domínio e HTTPS. O default da stack AWS mantém `invoice_scheduler_enabled=false`, então o scheduler continua desligado até ser ativado de forma explícita. Não use mais de uma task com `INVOICE_SCHEDULER_ENABLED=true`, porque o scheduler é in-process e pode emitir batches duplicados.
+
+Antes de habilitar o scheduler AWS:
+
+- confirme app AWS saudável e `/health` via HTTPS;
+- confirme RDS acessível e Flyway aplicado;
+- confirme secrets Stark Bank preenchidos no Secrets Manager;
+- aponte o webhook da Stark para `https://<dominio-final>/webhooks/starkbank`;
+- pare ou isole o app local/ngrok para evitar processamento duplo;
+- mantenha apenas uma task ECS ativa;
+- use `INVOICE_SCHEDULER_ENABLED=true` somente no momento aprovado da bateria;
+- mantenha `INVOICE_MAX_BATCHES=8`.
+
+Não mantenha duas subscriptions `invoice` ativas na Stark apontando para ambientes diferentes durante a bateria.
+
+Para rollback, publique uma nova task definition com `INVOICE_SCHEDULER_ENABLED=false`, mantenha a task viva para eventos pendentes, escale para `desired_count=0` somente depois que os eventos cessarem e restaure o webhook local/ngrok apenas se precisar voltar ao fluxo local.
 
 ## Execução Local da Aplicação
 
