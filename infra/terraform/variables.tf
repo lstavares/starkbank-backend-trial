@@ -51,6 +51,30 @@ variable "certificate_arn" {
   default     = ""
 }
 
+variable "root_domain_name" {
+  description = "Root domain name managed by the optional public Route 53 hosted zone."
+  type        = string
+  default     = "tavares-dev.com.br"
+}
+
+variable "route53_zone_enabled" {
+  description = "Whether Terraform should create the public Route 53 hosted zone for the root domain."
+  type        = bool
+  default     = false
+}
+
+variable "preserve_root_email_block_records" {
+  description = "Whether Terraform should preserve the current root null MX and SPF deny-all records in Route 53."
+  type        = bool
+  default     = true
+}
+
+variable "managed_https_enabled" {
+  description = "Reserved for the future ACM/HTTPS phase. Keep false during Route 53 phase 1."
+  type        = bool
+  default     = false
+}
+
 variable "container_name" {
   description = "Container name used by the ECS task definition and GitHub Actions deployment."
   type        = string

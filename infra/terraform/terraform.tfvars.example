@@ -12,6 +12,11 @@ invoice_max_batches        = 8
 # Leave empty until a public domain and ACM certificate are ready.
 certificate_arn = ""
 
+root_domain_name                  = "tavares-dev.com.br"
+route53_zone_enabled             = false
+preserve_root_email_block_records = true
+managed_https_enabled            = false
+
 # Replace SEU_IP_PUBLICO/32 before running terraform plan.
 allowed_http_cidr_blocks  = ["SEU_IP_PUBLICO/32"]
 allowed_https_cidr_blocks = ["0.0.0.0/0"]

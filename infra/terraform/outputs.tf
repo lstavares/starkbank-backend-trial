@@ -43,6 +43,21 @@ output "https_enabled" {
   value       = var.certificate_arn != ""
 }
 
+output "root_domain_name" {
+  description = "Root domain name used by the optional Route 53 hosted zone."
+  value       = var.root_domain_name
+}
+
+output "route53_zone_id" {
+  description = "Public Route 53 hosted zone id for the root domain, when enabled."
+  value       = var.route53_zone_enabled ? aws_route53_zone.root[0].zone_id : null
+}
+
+output "route53_name_servers" {
+  description = "Nameservers to configure at the domain registrar after Route 53 phase 1 apply."
+  value       = var.route53_zone_enabled ? aws_route53_zone.root[0].name_servers : []
+}
+
 output "github_deploy_role_arn" {
   description = "GitHub Actions role to store in the AWS_ROLE_TO_ASSUME repository variable."
   value       = aws_iam_role.github_deploy.arn

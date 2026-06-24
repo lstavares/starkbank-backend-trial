@@ -101,6 +101,7 @@ A stack fica em `infra/terraform` e usa defaults seguros:
 - RDS em subnets privadas;
 - ECS com public IP e inbound restrito ao ALB;
 - HTTPS opcional por `certificate_arn`;
+- Route 53 opcional por `route53_zone_enabled`;
 - sem valores sensíveis reais.
 
 Comandos de revisão:
@@ -131,6 +132,11 @@ invoice_interval_hours = 3
 invoice_max_batches = 8
 
 certificate_arn = ""
+
+root_domain_name = "tavares-dev.com.br"
+route53_zone_enabled = false
+preserve_root_email_block_records = true
+managed_https_enabled = false
 
 # Substitua SEU_IP_PUBLICO/32 antes de executar terraform plan.
 allowed_http_cidr_blocks = ["SEU_IP_PUBLICO/32"]
@@ -203,12 +209,27 @@ O workflow `.github/workflows/scale-aws.yml` também é manual. Use:
 
 Com `desired_count=0`, o webhook fica indisponível e o scheduler não roda. Com `desired_count=1`, o scheduler continua desligado enquanto `INVOICE_SCHEDULER_ENABLED=false`.
 
-## HTTPS e Webhook Stark
+## DNS, HTTPS e Webhook Stark
+
+A configuração de domínio é feita em duas fases para evitar bloquear a validação ACM antes da delegação DNS.
+
+Fase 1 cria apenas a hosted zone pública Route 53 para `tavares-dev.com.br`, preservando os registros raiz atualmente identificados:
+
+- MX nulo;
+- TXT SPF `v=spf1 -all`.
+
+Depois do apply da Fase 1, copie os 4 nameservers do output `route53_name_servers` e configure-os manualmente no painel do registrador do domínio `tavares-dev.com.br`. Valide a propagação com:
+
+```bash
+dig +short NS tavares-dev.com.br
+```
+
+ACM, validação DNS, listener HTTPS e alias do subdomínio ficam para a Fase 2.
 
 HTTP no ALB existe apenas para smoke test técnico. Webhook público real da Stark deve apontar para uma URL HTTPS final:
 
 ```text
-https://<dominio-final>/webhooks/starkbank
+https://starkbank-trial.tavares-dev.com.br/webhooks/starkbank
 ```
 
 Ngrok continua sendo uma ferramenta local/fallback para expor a aplicação em desenvolvimento. Ele não deve ficar na frente da AWS no teste end-to-end, porque adiciona uma dependência temporária e não valida o caminho final ALB HTTPS -> ECS.

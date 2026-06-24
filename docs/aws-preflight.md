@@ -46,10 +46,21 @@ Domínio, hosted zone e certificado ACM ainda estão pendentes. O listener HTTP 
 O webhook público real da Stark deve usar uma URL HTTPS final:
 
 ```text
-https://<dominio-final>/webhooks/starkbank
+https://starkbank-trial.tavares-dev.com.br/webhooks/starkbank
 ```
 
-Antes de ativar a demo, será necessário definir uma destas alternativas:
+O DNS deve ser preparado em duas fases:
+
+- Fase 1: criar somente a hosted zone pública Route 53 para `tavares-dev.com.br`, preservar MX nulo e TXT SPF `v=spf1 -all`, e copiar o output `route53_name_servers` para o painel do registrador.
+- Fase 2: após propagação dos nameservers, criar ACM, validação DNS, listener HTTPS e alias do subdomínio.
+
+Após o apply da Fase 1, valide a propagação com:
+
+```bash
+dig +short NS tavares-dev.com.br
+```
+
+Antes de ativar a demo, será necessário concluir uma destas alternativas:
 
 - informar um `certificate_arn` de ACM já validado;
 - criar/validar certificado ACM com DNS editável;

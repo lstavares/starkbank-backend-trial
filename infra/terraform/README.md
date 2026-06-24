@@ -88,7 +88,7 @@ The deploy workflow keeps `INVOICE_SCHEDULER_ENABLED=false` by default. Setting 
 The final Stark Bank webhook endpoint for AWS must use HTTPS:
 
 ```text
-https://<dominio-final>/webhooks/starkbank
+https://starkbank-trial.tavares-dev.com.br/webhooks/starkbank
 ```
 
 The ALB HTTP listener is only for smoke tests such as `/health`. Ngrok remains a local/fallback tool and should not sit in front of AWS for the end-to-end scheduler battery.
@@ -96,6 +96,27 @@ The ALB HTTP listener is only for smoke tests such as `/health`. Ngrok remains a
 Before enabling the AWS scheduler, confirm HTTPS, Secrets Manager values, RDS/Flyway, one active ECS task, and the Stark webhook pointing to the AWS endpoint. Do not keep local/ngrok and AWS processing the same `invoice` webhooks at the same time.
 
 Rollback starts by deploying a new task definition with `INVOICE_SCHEDULER_ENABLED=false`. Keep the task running for pending webhook events, scale to `desired_count=0` only after events stop, and restore the Stark webhook to local/ngrok only if the local fallback is needed.
+
+## Route 53 Phase 1
+
+Set `route53_zone_enabled=true` to create only the public Route 53 hosted zone for `tavares-dev.com.br`.
+
+Phase 1 also preserves the currently identified root records when `preserve_root_email_block_records=true`:
+
+- null MX;
+- TXT SPF `v=spf1 -all`.
+
+It does not create ACM certificates, ACM validation records, HTTPS listeners, or application alias records.
+
+After the approved Phase 1 apply, copy the 4 values from the `route53_name_servers` output and configure them in the domain registrar panel for `tavares-dev.com.br`.
+
+Validate delegation with:
+
+```bash
+dig +short NS tavares-dev.com.br
+```
+
+Only start Phase 2 after those nameservers are visible publicly.
 
 ## Variables
 
@@ -118,6 +139,11 @@ invoice_interval_hours = 3
 invoice_max_batches = 8
 
 certificate_arn = ""
+
+root_domain_name = "tavares-dev.com.br"
+route53_zone_enabled = false
+preserve_root_email_block_records = true
+managed_https_enabled = false
 
 # Replace SEU_IP_PUBLICO/32 before running terraform plan.
 allowed_http_cidr_blocks = ["SEU_IP_PUBLICO/32"]
