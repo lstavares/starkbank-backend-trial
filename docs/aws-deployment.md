@@ -1,8 +1,8 @@
-# Deploy AWS Opcional
+# Deploy AWS
 
-Este documento descreve a stack AWS opcional do Stark Bank Backend Trial. Ela existe como preparação revisável de demo/bonus point: adiciona IaC, workflows manuais e documentação, mas não cria recursos automaticamente.
+Este documento descreve o provisionamento e a operação de deploy da versão AWS do Stark Bank Backend Trial. A arquitetura executada, os trade-offs, a segurança e as evidências operacionais estão detalhados em [aws-architecture.md](aws-architecture.md).
 
-`terraform apply` não deve ser executado sem aprovação explícita.
+Os arquivos de infraestrutura e workflows não criam recursos automaticamente por simples leitura ou clone do repositório. `terraform apply` não deve ser executado sem aprovação explícita.
 
 ## Recomendação
 
@@ -14,8 +14,9 @@ EKS faria sentido se o projeto já tivesse plataforma Kubernetes, múltiplos ser
 
 - ECR privado para armazenar a imagem Docker.
 - ECS Fargate com service inicialmente em `desired_count=0`.
-- ALB público com HTTP apenas para smoke test técnico.
-- Listener HTTPS opcional quando `certificate_arn` de ACM estiver disponível.
+- Route 53 com hosted zone de `tavares-dev.com.br` e alias para o ALB.
+- ACM com certificado TLS para `starkbank-trial.tavares-dev.com.br`.
+- ALB público com HTTPS para o webhook e HTTP redirecionando para HTTPS.
 - RDS PostgreSQL single-AZ em subnets privadas.
 - Secrets Manager para credenciais sensíveis.
 - CloudWatch Logs para stdout/stderr do container.
@@ -25,11 +26,12 @@ EKS faria sentido se o projeto já tivesse plataforma Kubernetes, múltiplos ser
 flowchart LR
     GitHub["GitHub Actions OIDC"] --> ECR["Amazon ECR"]
     ECR --> ECS["ECS Fargate"]
-    ALB["ALB HTTP/HTTPS"] --> ECS
+    DNS["Route 53 + ACM"] --> ALB["ALB HTTPS"]
+    ALB --> ECS
     ECS --> RDS["RDS PostgreSQL"]
     ECS --> Secrets["Secrets Manager"]
     ECS --> Logs["CloudWatch Logs"]
-    Stark["Stark Bank Webhook HTTPS"] --> ALB
+    Stark["Stark Bank Webhook HTTPS"] --> DNS
 ```
 
 ## Preflight
@@ -100,8 +102,8 @@ A stack fica em `infra/terraform` e usa defaults seguros:
 - ALB e ECS em subnets públicas;
 - RDS em subnets privadas;
 - ECS com public IP e inbound restrito ao ALB;
-- HTTPS opcional por `certificate_arn` externo ou `managed_https_enabled`;
-- Route 53 opcional por `route53_zone_enabled`;
+- HTTPS gerenciado por ACM quando `managed_https_enabled=true`;
+- Route 53 habilitado quando `route53_zone_enabled=true`;
 - sem valores sensíveis reais.
 
 Comandos de revisão:
@@ -193,14 +195,15 @@ O workflow também expõe inputs manuais para scheduler. Os defaults seguros sã
 - `invoice_scheduler_enabled=false`;
 - `invoice_max_batches=8`.
 
-Alterar `invoice_scheduler_enabled` para `true` emite Invoices no Sandbox da Stark Bank. Use esse input apenas depois do cutover HTTPS do webhook e com uma única task ECS ativa.
+Alterar `invoice_scheduler_enabled` para `true` emite Invoices no Sandbox da Stark Bank. Use esse input apenas com o webhook HTTPS apontando para AWS, Project Stark AWS separado, webhook ngrok removido do Project AWS e uma única task ECS ativa.
 
-Ele não roda em push e não deve ser usado antes de:
+Ele não roda em push. Antes de executar um deploy operacional, confirme:
 
 - secrets Stark Bank preenchidos;
 - role OIDC configurada no GitHub;
 - RDS criado e acessível;
-- decisão final de HTTPS/domínio/certificado.
+- domínio, Route 53, ACM e listener HTTPS validados;
+- HTTP redirecionando para HTTPS quando `redirect_http_to_https=true`.
 
 ## Scale Manual
 
@@ -213,7 +216,7 @@ Com `desired_count=0`, o webhook fica indisponível e o scheduler não roda. Com
 
 ## DNS, HTTPS e Webhook Stark
 
-A configuração de domínio é feita em duas fases para evitar bloquear a validação ACM antes da delegação DNS.
+A configuração de domínio foi planejada em duas fases para evitar bloquear a validação ACM antes da delegação DNS. Na versão AWS validada, o domínio `starkbank-trial.tavares-dev.com.br`, a hosted zone Route 53, o certificado ACM, o listener HTTPS e o redirect de HTTP para HTTPS estão configurados.
 
 Fase 1 cria apenas a hosted zone pública Route 53 para `tavares-dev.com.br`, preservando os registros raiz atualmente identificados:
 
@@ -255,7 +258,7 @@ AWS_PROFILE=starkbank-trial AWS_REGION=us-east-1 terraform -chdir=infra/terrafor
   -var='redirect_http_to_https=true'
 ```
 
-Depois de validar HTTPS, atualize a URL do webhook na Stark em uma etapa separada e aprovada. Não mantenha a aplicação local/ngrok e a aplicação AWS processando webhooks ao mesmo tempo durante a bateria, e não deixe duas subscriptions `invoice` ativas apontando para ambientes diferentes.
+Na versão AWS, a URL de webhook validada é `https://starkbank-trial.tavares-dev.com.br/webhooks/starkbank`. Não mantenha a aplicação local/ngrok e a aplicação AWS processando webhooks ao mesmo tempo durante a bateria, e não deixe duas subscriptions `invoice` ativas apontando para ambientes diferentes.
 
 ## Scheduler em Cloud
 

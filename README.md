@@ -12,7 +12,7 @@ O desafio pede uma aplicação capaz de:
 - Quando uma Invoice for paga, criar uma Transfer para a conta de destino configurada.
 - Registrar o processamento local de forma rastreável e idempotente.
 
-Esta implementação usa o Sandbox da Stark Bank, PostgreSQL local via Docker Compose e Flyway para versionamento do schema.
+Esta implementação usa o Sandbox da Stark Bank, PostgreSQL local via Docker Compose e Flyway para versionamento do schema. A versão AWS também foi publicada em ECS/Fargate, com RDS PostgreSQL, ECR, Secrets Manager, ALB HTTPS, Route 53, ACM e deploy via GitHub Actions OIDC.
 
 ## O Que a Aplicação Faz
 
@@ -38,7 +38,7 @@ Esta implementação usa o Sandbox da Stark Bank, PostgreSQL local via Docker Co
 - [x] Persistência idempotente de eventos.
 - [x] Skip correto para eventos `created`, `overdue` e `expired`.
 - [x] Fluxo `paid -> Transfer` implementado e coberto por testes automatizados.
-- [ ] Validação end-to-end `paid -> Transfer` no Sandbox, pendente porque nenhum evento/log `paid` foi observado durante a janela testada.
+- [x] Smoke test AWS com webhook real, evento `paid` processado e Transfer criada com status `SUCCEEDED`.
 
 ## Stack
 
@@ -57,8 +57,8 @@ Esta implementação usa o Sandbox da Stark Bank, PostgreSQL local via Docker Co
 
 ## Arquitetura
 
-A documentação detalhada está em [docs/architecture.md](docs/architecture.md).
-O plano opcional de deploy AWS está em [docs/aws-deployment.md](docs/aws-deployment.md).
+A documentação detalhada da aplicação está em [docs/architecture.md](docs/architecture.md).
+O capítulo específico da versão AWS está em [docs/aws-architecture.md](docs/aws-architecture.md), com operação de deploy em [docs/aws-deployment.md](docs/aws-deployment.md).
 
 ```mermaid
 flowchart LR
@@ -411,7 +411,7 @@ Se o evento não trouxer todos os valores, o app consulta detalhes da Invoice pe
 
 Detalhes estão em [docs/VALIDATION.md](docs/VALIDATION.md).
 
-Resumo da validação real:
+Resumo da validação local anterior:
 
 - Criação de Invoices foi validada no Sandbox.
 - Webhook real foi validado com eventos `created`, `overdue` e `expired`.
@@ -419,12 +419,22 @@ Resumo da validação real:
 - Todos os eventos consultados na Stark Bank estavam com `isDelivered=true`.
 - Os eventos recebidos foram processados pela aplicação com HTTP 200.
 - Uma validação noturna adicional confirmou o scheduler em execução real, com 52 Invoices scheduled bem-sucedidas distribuídas entre batches de 8 a 12 Invoices.
-- Nenhuma Transfer foi criada porque nenhum evento/log `paid` foi gerado durante a janela observada.
-- O fluxo `paid -> Transfer` está implementado e testado, mas não foi validado end-to-end no Sandbox.
+- Nenhuma Transfer foi criada nessa janela porque nenhum evento/log `paid` foi gerado durante a observação local.
+- O fluxo `paid -> Transfer` estava implementado e coberto por testes automatizados.
+
+Resumo da validação AWS:
+
+- Aplicação publicada em ECS/Fargate com RDS PostgreSQL, ECR, Secrets Manager, ALB HTTPS, Route 53 e ACM.
+- `/health` respondeu HTTP 200 pelo domínio `starkbank-trial.tavares-dev.com.br`.
+- Webhook real foi recebido em `https://starkbank-trial.tavares-dev.com.br/webhooks/starkbank`.
+- Evento `paid` foi processado e a Transfer correspondente foi criada com status `SUCCEEDED`.
+- Scheduler AWS configurado para 8 batches, intervalo de 3 horas e ativação controlada por `INVOICE_SCHEDULER_ENABLED`.
+
+Detalhes da versão AWS estão em [docs/aws-architecture.md](docs/aws-architecture.md).
 
 ## Limitação Observada no Sandbox
 
-Durante a janela testada, as Invoices criadas no Sandbox não transicionaram para `paid`. Uma Invoice manual criada pelo portal como cobrança imediata, ID `4662832549330944`, também seguiu `created -> overdue -> expired`, sem evento/log `paid`.
+Durante a janela local testada, as Invoices criadas no Sandbox não transicionaram para `paid`. Uma Invoice manual criada pelo portal como cobrança imediata, ID mascarado `46628325...0944`, também seguiu `created -> overdue -> expired`, sem evento/log `paid`.
 
 Isso é documentado como comportamento observado e pendência de validação externa, não como bug confirmado da Stark Bank.
 
@@ -450,7 +460,7 @@ Atalhos úteis:
 
 ## Bônus e Melhorias Futuras
 
-- Cloud deployment candidate: empacotar como container, publicar em registry, usar PostgreSQL gerenciado, secrets manager e HTTPS público para webhook. Uma proposta AWS opcional está em [docs/aws-deployment.md](docs/aws-deployment.md).
+- AWS operations: manter a documentação de arquitetura e operação em [docs/aws-architecture.md](docs/aws-architecture.md) e [docs/aws-deployment.md](docs/aws-deployment.md).
 - SDK/API findings: documentar pontos que exigem confirmação antes de abrir issue pública.
 - Documentation gaps: registrar dúvidas operacionais sobre `paid`, `due`, `expiration`, fee e payment details.
 - Sandbox behavior observed: manter evidência de Invoices que expiraram sem `paid`.
@@ -464,4 +474,4 @@ Achados exploratórios estão em [docs/starkbank-findings.md](docs/starkbank-fin
 - O arquivo `.env.example` contém apenas nomes e placeholders.
 - A private key deve permanecer fora do Git.
 - O fluxo principal de criação de Invoices e recepção de webhooks reais foi validado.
-- O fluxo `paid -> Transfer` está implementado e coberto por testes, mas depende de um evento `paid` real para validação end-to-end no Sandbox.
+- O fluxo `paid -> Transfer` está implementado, coberto por testes e validado em smoke test AWS com evento `paid` real e Transfer `SUCCEEDED`.

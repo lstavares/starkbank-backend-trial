@@ -1,6 +1,6 @@
 # Arquitetura
 
-Este documento detalha a organização técnica do Stark Bank Backend Trial. Ele descreve a arquitetura atual, os fluxos principais, a integração com a Stark Bank Java SDK, decisões de idempotência, persistência e uma proposta de evolução para cloud deployment.
+Este documento detalha a organização técnica do Stark Bank Backend Trial. Ele descreve a arquitetura da aplicação, os fluxos principais, a integração com a Stark Bank Java SDK, decisões de idempotência, persistência e o caminho de deploy cloud.
 
 ## Visão Geral
 
@@ -258,7 +258,7 @@ Proposta mínima:
 - Rodar Flyway no startup controlado ou etapa de deploy.
 - Adicionar healthcheck e logs estruturados.
 
-Para AWS, a opção recomendada para este trial é ECS Fargate com ECR, ALB HTTPS, RDS PostgreSQL, Secrets Manager, CloudWatch Logs e GitHub Actions com OIDC. A proposta detalhada, ainda sem IaC implementado, está em [aws-deployment.md](aws-deployment.md).
+Para AWS, a versão publicada usa ECS Fargate com ECR, ALB HTTPS, Route 53, ACM, RDS PostgreSQL, Secrets Manager, CloudWatch Logs e GitHub Actions com OIDC. A arquitetura e as evidências estão em [aws-architecture.md](aws-architecture.md), e o guia de deploy está em [aws-deployment.md](aws-deployment.md).
 
 ## Observabilidade Futura
 
