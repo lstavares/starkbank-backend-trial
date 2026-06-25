@@ -7,7 +7,7 @@ Este documento reúne achados exploratórios observados durante a implementaçã
 | Classificação | Achado | Status |
 | --- | --- | --- |
 | Comportamento observado | Invoices testadas não geraram evento/log `paid` durante a janela observada. | Necessita confirmação em nova janela de teste. |
-| Comportamento observado | Invoice manual `4662832549330944` seguiu `created -> overdue -> expired`. | Registrado em validação. |
+| Comportamento observado | Invoice manual mascarada `46628325...0944` seguiu `created -> overdue -> expired`. | Registrado em validação. |
 | Lacuna de documentação | Interação entre cobrança imediata, `due` e `expiration` pode exigir exemplos mais claros. | Candidato a documentação futura. |
 | Ponto de atenção da SDK | Parse de webhook depende de `Settings.user` configurado antes de `Event.parse`. | Isolado no provider; merece atenção em apps concorrentes. |
 | Lacuna de documentação | Disponibilidade de fee/payment details pode variar entre evento, Invoice e Invoice Payment. | Tratado com fallback no app. |
@@ -31,7 +31,7 @@ Interpretação cuidadosa:
 
 ## Invoice Manual pelo Portal
 
-A Invoice manual `4662832549330944`, criada pelo portal como cobrança imediata, também passou por:
+A Invoice manual mascarada `46628325...0944`, criada pelo portal como cobrança imediata, também passou por:
 
 ```text
 created -> overdue -> expired

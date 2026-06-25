@@ -2,6 +2,8 @@
 .env
 *.pem
 *.key
+*.pkg
+AWSCLIV2.pkg
 
 target/
 build/
@@ -12,3 +14,11 @@ out/
 .vscode/
 
 *.log
+
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+tfplan
+plan.txt

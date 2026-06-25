@@ -1,0 +1,42 @@
+aws_region  = "us-east-1"
+name_prefix = "starkbank-trial"
+
+desired_count = 0
+image_tag     = "latest"
+
+spring_profiles_active      = "aws"
+invoice_scheduler_enabled  = false
+invoice_interval_hours     = 3
+invoice_max_batches        = 8
+
+# Leave empty until a public domain and ACM certificate are ready.
+certificate_arn = ""
+
+root_domain_name                  = "tavares-dev.com.br"
+app_domain_name                   = "starkbank-trial.tavares-dev.com.br"
+route53_zone_enabled             = false
+preserve_root_email_block_records = true
+managed_https_enabled            = false
+redirect_http_to_https           = true
+
+# Replace SEU_IP_PUBLICO/32 before running terraform plan.
+allowed_http_cidr_blocks  = ["SEU_IP_PUBLICO/32"]
+allowed_https_cidr_blocks = ["0.0.0.0/0"]
+
+github_repository = "lstavares/starkbank-backend-trial"
+github_oidc_subjects = [
+  "repo:lstavares/starkbank-backend-trial:*"
+]
+
+starkbank_environment = "sandbox"
+
+database_name           = "starkbank_trial"
+database_username       = "starkbank"
+database_instance_class = "db.t4g.micro"
+
+tags = {
+  Project     = "starkbank-backend-trial"
+  Purpose     = "demo"
+  Environment = "sandbox"
+  Owner       = "leandro"
+}

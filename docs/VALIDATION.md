@@ -1,6 +1,6 @@
 # Validação
 
-Este documento registra o que foi validado no Sandbox da Stark Bank e o que permanece pendente por depender de um evento real `paid`.
+Este documento registra o que foi validado no Sandbox da Stark Bank em ambiente local e na versão AWS.
 
 ## Resumo Executivo
 
@@ -10,8 +10,8 @@ Este documento registra o que foi validado no Sandbox da Stark Bank e o que perm
 - Todos os eventos consultados via SDK na Stark Bank estavam com `isDelivered=true`.
 - O scheduler foi validado em execução real durante uma janela noturna, com batches `SCHEDULED` bem-sucedidos e emissão de 52 Invoices.
 - O fluxo `paid -> Transfer` está implementado e coberto por testes automatizados.
-- O fluxo `paid -> Transfer` não foi validado end-to-end no Sandbox porque nenhum evento/log `paid` foi gerado durante a janela observada.
-- Nenhuma Transfer foi criada porque não houve evento `paid`.
+- Na janela local observada, nenhum evento/log `paid` foi gerado e nenhuma Transfer foi criada.
+- Na versão AWS, um smoke test recebeu webhook real, processou evento `paid` e criou Transfer com status `SUCCEEDED`.
 
 ## Dados Observados
 
@@ -30,6 +30,21 @@ Transfers:
 | Métrica | Quantidade |
 | --- | ---: |
 | Transfers criadas | 0 |
+
+## Validação AWS
+
+A versão AWS foi publicada com ECS/Fargate, RDS PostgreSQL, ECR, Secrets Manager, CloudWatch Logs, ALB HTTPS, Route 53, ACM e deploy via GitHub Actions OIDC.
+
+Evidências registradas:
+
+- `/health` respondeu HTTP 200 pelo domínio `starkbank-trial.tavares-dev.com.br`.
+- O webhook real foi recebido em `https://starkbank-trial.tavares-dev.com.br/webhooks/starkbank`.
+- Um evento `paid` foi processado pela aplicação AWS.
+- A Transfer correspondente foi criada com status `SUCCEEDED`.
+- CloudWatch Logs não apresentou erros relevantes durante o smoke test validado.
+- O scheduler AWS foi configurado com `INVOICE_SCHEDULER_ENABLED=true`, `INVOICE_MAX_BATCHES=8` e `INVOICE_INTERVAL_HOURS=3`.
+
+Detalhes da arquitetura AWS, operação e segurança estão em [aws-architecture.md](aws-architecture.md).
 
 ## Validação Adicional do Scheduler
 
@@ -158,7 +173,7 @@ Os eventos consultados via SDK na Stark Bank estavam com `isDelivered=true`. Iss
 
 ## Invoice Manual pelo Portal
 
-Uma Invoice manual criada pelo portal como cobrança imediata, ID `4662832549330944`, também foi observada.
+Uma Invoice manual criada pelo portal como cobrança imediata, ID mascarado `46628325...0944`, também foi observada.
 
 Sequência observada:
 
@@ -187,7 +202,7 @@ Quando essas condições forem atendidas, o app:
 4. Cria uma Transfer com `external_id=transfer-{eventId}`.
 5. Marca o evento como `PROCESSED` se a Transfer for criada com sucesso.
 
-Esse fluxo está coberto por testes automatizados, mas não foi validado end-to-end no Sandbox porque nenhum evento/log `paid` foi gerado.
+Esse fluxo está coberto por testes automatizados e foi validado em smoke test AWS com webhook real, evento `paid` processado e Transfer criada com status `SUCCEEDED`. Na janela local descrita acima, nenhum evento/log `paid` foi gerado.
 
 ## Limitação Observada no Sandbox
 
@@ -195,9 +210,9 @@ Durante a janela de validação:
 
 - Invoices criadas pela aplicação chegaram a `created` e `overdue`.
 - Pelo menos uma Invoice chegou a `expired`.
-- A Invoice manual `4662832549330944` também seguiu `created -> overdue -> expired`.
+- A Invoice manual mascarada `46628325...0944` também seguiu `created -> overdue -> expired`.
 - Nenhuma Invoice observada gerou evento/log `paid`.
-- Nenhuma Transfer foi criada.
+- Nenhuma Transfer foi criada nessa janela local.
 
 Este é um comportamento observado do Sandbox durante a janela testada. Não é tratado aqui como bug confirmado da Stark Bank.
 
@@ -239,5 +254,6 @@ order by created_at desc;
 | Skip de eventos não pagos | Validado |
 | Persistência idempotente de eventos | Validado localmente e por testes |
 | Implementação de `paid -> Transfer` | Implementada e testada |
-| Validação end-to-end `paid -> Transfer` no Sandbox | Pendente |
-| Transfer criada no Sandbox | Não ocorreu, pois não houve `paid` |
+| Validação end-to-end `paid -> Transfer` na AWS | Validado em smoke test |
+| Transfer criada na AWS | Validado com status `SUCCEEDED` |
+| Validação local `paid -> Transfer` durante janela ngrok | Não ocorreu, pois não houve `paid` |

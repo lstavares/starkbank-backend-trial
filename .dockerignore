@@ -4,6 +4,13 @@ target
 *.pem
 *.key
 *.log
+.terraform
+terraform.tfstate
+terraform.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+tfplan
+plan.txt
 .idea
 .vscode
 .DS_Store
